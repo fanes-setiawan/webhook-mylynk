@@ -30,18 +30,38 @@ export async function POST(req: NextRequest) {
     // Tentukan jenis event (jika ada)
     const eventType = payload.event || payload.type || 'transaction';
     
-    // Filter event jika perlu
-    // if (eventType !== 'order.paid') {
-    //   return NextResponse.json({ success: true, message: 'Event ignored' });
-    // }
+    // === 1. HANDLER UNTUK TOMBOL "TEST URL" ===
+    if (eventType === 'test_event') {
+      const discordPayload = {
+        embeds: [
+          {
+            title: "✅ Webhook Berhasil Terhubung!",
+            description: "Lynk.id berhasil mengirimkan notifikasi test ke sistem Anda.",
+            color: 5814783, // Biru muda
+            fields: [
+              { name: "Pesan", value: payload.data?.message || 'This is a test webhook' }
+            ],
+            footer: { text: "Lynk.id Webhook System" }
+          }
+        ]
+      };
 
-    // Ambil data transaksi (sesuaikan path ini nanti berdasarkan debug payload)
-    const orderId = payload.order_id || payload.id || 'N/A';
-    const productName = payload.product?.name || payload.product_name || 'Produk Lynk.id';
-    const customerName = payload.customer?.name || payload.customer_name || 'Customer';
-    const quantity = payload.quantity || payload.qty || 1;
-    const totalAmount = payload.total || payload.amount || '0';
-    const status = payload.status || payload.payment_status || 'N/A';
+      await fetch(DISCORD_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(discordPayload),
+      });
+
+      return NextResponse.json({ success: true, message: 'Test event processed' });
+    }
+
+    // === 2. HANDLER UNTUK TRANSAKSI ASLI ===
+    // Ambil data transaksi (Masih ASUMSI karena kita belum melihat transaksi asli)
+    const orderId = payload.order_id || payload.id || payload.data?.order_id || 'N/A';
+    const productName = payload.product?.name || payload.product_name || payload.data?.product_name || 'Produk Lynk.id';
+    const customerName = payload.customer?.name || payload.customer_name || payload.data?.customer_name || 'Customer';
+    const totalAmount = payload.total || payload.amount || payload.data?.amount || '0';
+    const status = payload.status || payload.payment_status || payload.data?.status || 'N/A';
     
     // Format Waktu Jakarta
     const transactionDate = new Date().toLocaleString('id-ID', { 
@@ -50,7 +70,7 @@ export async function POST(req: NextRequest) {
       timeStyle: 'short' 
     }) + ' WIB';
 
-    // 3. Susun Payload Discord Embed
+    // Susun Payload Discord Embed
     const discordPayload = {
       embeds: [
         {
@@ -58,45 +78,14 @@ export async function POST(req: NextRequest) {
           description: `Event: **${eventType}**`,
           color: 3066993, // Warna hijau
           fields: [
-            {
-              name: "Order ID",
-              value: String(orderId),
-              inline: true
-            },
-            {
-              name: "Customer",
-              value: String(customerName),
-              inline: true
-            },
-            {
-              name: "Status",
-              value: String(status),
-              inline: true
-            },
-            {
-              name: "Produk",
-              value: String(productName),
-              inline: true
-            },
-            {
-              name: "Quantity",
-              value: String(quantity),
-              inline: true
-            },
-            {
-              name: "Total",
-              value: String(totalAmount),
-              inline: true
-            },
-            {
-              name: "Waktu",
-              value: String(transactionDate),
-              inline: false
-            }
+            { name: "Order ID", value: String(orderId), inline: true },
+            { name: "Customer", value: String(customerName), inline: true },
+            { name: "Status", value: String(status), inline: true },
+            { name: "Produk", value: String(productName), inline: true },
+            { name: "Total", value: String(totalAmount), inline: true },
+            { name: "Waktu", value: String(transactionDate), inline: false }
           ],
-          footer: {
-            text: "Sistem Webhook Integrasi Lynk.id ke Discord"
-          }
+          footer: { text: "Sistem Webhook Integrasi Lynk.id ke Discord" }
         }
       ]
     };
